@@ -1,0 +1,1 @@
+# opensalary-notifications-discord-bot
