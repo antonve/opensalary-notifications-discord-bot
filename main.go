@@ -9,7 +9,9 @@ import (
 )
 
 var seen map[int]Item = map[int]Item{}
-var initialized bool = false
+
+// TODO: set to false after dev
+var initialized bool = true
 
 type SalaryEntries struct {
 	Items []Item `json:"items"`
@@ -62,7 +64,13 @@ func updateSalaryEntries(newSalaries chan Item) {
 	for _, item := range entries.Items {
 		if _, ok := seen[item.ID]; !ok {
 			seen[item.ID] = item
-			newSalaries <- item
+
+			// Temporarily add logic to limit to 5 entries to avoid spamming during dev
+			if len(seen) == 5 {
+				close(newSalaries)
+			} else if len(seen) <= 4 {
+				newSalaries <- item
+			}
 		}
 	}
 }
