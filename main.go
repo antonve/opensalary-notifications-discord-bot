@@ -62,7 +62,7 @@ func fetchSalaryEntries() (*SalaryEntries, error) {
 	}
 
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("unable to fetch salary entries: status code %v", resp.StatusCode)
+		return nil, fmt.Errorf("unexpected status code %v", resp.StatusCode)
 	}
 
 	var entries *SalaryEntries
@@ -78,7 +78,7 @@ func fetchSalaryEntries() (*SalaryEntries, error) {
 func updateSalaryEntries(newSalaries chan Item) {
 	entries, err := fetchSalaryEntries()
 	if err != nil {
-		sendNotification(config.ErrorWebhookURL, "OpenSalary", fmt.Sprintf("could not fetch salaries: %d", err), nil)
+		sendNotification(config.ErrorWebhookURL, "OpenSalary", fmt.Sprintf("could not fetch salaries: %v", err), nil)
 		return
 	}
 
