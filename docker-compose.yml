@@ -6,3 +6,7 @@ services:
     build: .
     volumes:
       - .:/app
+    environment:
+      BOT_NOTIFY_WEBHOOK_URL: "https://discord.com/api/webhooks/..."
+      BOT_ERROR_WEBHOOK_URL: "https://discord.com/api/webhooks/..."
+      BOT_REFRESH_FREQUENCY: "10s"

@@ -9,18 +9,19 @@ import (
 	"time"
 
 	"github.com/gtuk/discordwebhook"
+	"github.com/kelseyhightower/envconfig"
 	"github.com/leekchan/accounting"
 )
 
 type Config struct {
-	ErrorWebhook  string
-	NotifyWebhook string
+	ErrorWebhookURL  string        `envconfig:"ERROR_WEBHOOK_URL"`
+	NotifyWebhookURL string        `envconfig:"NOTIFY_WEBHOOK_URL"`
+	RefreshhDelay    time.Duration `envconfig:"REFRESH_FREQUENCY" default:"1h"`
 }
 
+var config Config = Config{}
 var seen map[int]Item = map[int]Item{}
-
-// TODO: set to false after dev
-var initialized bool = true
+var initialized bool = false
 
 type SalaryEntries struct {
 	Items []Item `json:"items"`
@@ -77,17 +78,14 @@ func fetchSalaryEntries() (*SalaryEntries, error) {
 func updateSalaryEntries(newSalaries chan Item) {
 	entries, err := fetchSalaryEntries()
 	if err != nil {
-		panic(err)
+		sendNotification(config.ErrorWebhookURL, "OpenSalary", fmt.Sprintf("could not fetch salaries: %d", err), nil)
+		return
 	}
 
 	for _, item := range entries.Items {
 		if _, ok := seen[item.ID]; !ok {
 			seen[item.ID] = item
-
-			// Temporarily add logic to limit to 1 entries to avoid spamming during dev
-			if len(seen) == 2 {
-				close(newSalaries)
-			} else if len(seen) <= 1 {
+			if initialized {
 				newSalaries <- item
 			}
 		}
@@ -108,26 +106,24 @@ func sendNotification(url, username, content string, embeds []discordwebhook.Emb
 }
 
 func main() {
-	var config = &Config{
-		NotifyWebhook: "",
-		ErrorWebhook:  "",
+	err := envconfig.Process("BOT", &config)
+	if err != nil {
+		panic(err)
 	}
 
+	log.Default().Println("Refresh delay", config.RefreshhDelay)
 	ac := accounting.Accounting{Symbol: "¥", Precision: 0}
 	newSalaries := make(chan Item)
 	go func() {
 		for {
+			log.Default().Println("Fetching new salaries...")
 			updateSalaryEntries(newSalaries)
 			initialized = true
-			time.Sleep(10 * time.Second)
+			time.Sleep(config.RefreshhDelay)
 		}
 	}()
 
 	for item := range newSalaries {
-		if !initialized {
-			return
-		}
-
 		content := "New salary submitted"
 		companyURL := item.Company.URL()
 		itemURL := item.URL()
@@ -168,6 +164,7 @@ func main() {
 				},
 			},
 		}
-		sendNotification(config.NotifyWebhook, "OpenSalary", content, embeds)
+
+		sendNotification(config.NotifyWebhookURL, "OpenSalary", content, embeds)
 	}
 }
