@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 )
 
 var seen map[int]Item = map[int]Item{}
+var initialized bool = false
 
 type SalaryEntries struct {
 	Items []Item `json:"items"`
@@ -51,11 +53,35 @@ func fetchSalaryEntries() (*SalaryEntries, error) {
 	return entries, nil
 }
 
-func main() {
+func updateSalaryEntries(newSalaries chan Item) {
 	entries, err := fetchSalaryEntries()
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Printf("%+v\n", entries)
+	for _, item := range entries.Items {
+		if _, ok := seen[item.ID]; !ok {
+			seen[item.ID] = item
+			newSalaries <- item
+		}
+	}
+}
+
+func main() {
+	newSalaries := make(chan Item)
+	go func() {
+		for {
+			updateSalaryEntries(newSalaries)
+			initialized = true
+			time.Sleep(10 * time.Second)
+		}
+	}()
+
+	for item := range newSalaries {
+		if !initialized {
+			return
+		}
+
+		fmt.Printf("%+v\n", item)
+	}
 }
